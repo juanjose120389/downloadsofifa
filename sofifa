@@ -1,0 +1,86 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue May 17 16:53:07 2022
+
+@author: Juanjo
+"""
+import cloudscraper 
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+import numpy as np
+
+
+
+def get_data(offset):
+    url = "https://sofifa.com/players?col=oa&sort=desc&offset=" + str(offset * 60)
+    scraper = cloudscraper.create_scraper(delay=10, browser="chrome") 
+    content = scraper.get(url).content 
+    soup = BeautifulSoup(scraper.get(url).content, "html.parser")
+    
+    print(url)
+    rv = []
+    for row in soup.select("tbody tr"):
+        id_ = row.select_one("img[id]")["id"]
+        name = row.select_one(".col-name >a[aria-label]")["aria-label"]
+        age = row.select_one(".col-ae").get_text(strip=True)
+        positions = [p.get_text(strip=True) for p in row.select("span.pos")]
+        nationality = row.select_one("img.flag")["title"]
+        overall = row.select_one(".col-oa").get_text(strip=True)
+        potential = row.select_one(".col-pt").get_text(strip=True)
+        club = row.select_one(".col-name > div > a").get_text(strip=True)
+        imagen = row.select_one("img[data-src]")["data-src"]
+        url = row.select_one(".col-name >a[href]")["href"]
+
+        # sometimes there isn't any club, just country:
+        if club == "":
+            club = row.select_one(".col-name > div > a")["title"]
+        
+        value = row.select_one(".col-vl").get_text(strip=True)
+        #print(value)
+        wage = row.select_one(".col-wg").get_text(strip=True)
+        rv.append(
+            [
+                id_,
+                name,
+                age,
+                ", ".join(positions),
+                nationality,
+                overall,
+                potential,
+                club,
+                value,
+                wage,
+                imagen,
+                url,
+            ]
+        )
+
+    return rv
+
+
+all_data = []
+for offset in range(0, 305):  # <--- increase offset here
+    print("Offset {}...".format(offset))
+    all_data.extend(get_data(offset))
+
+df = pd.DataFrame(
+    all_data,
+    columns=[
+        "ID",
+        "Name",
+        "Age",
+        "Positions",
+        "Nationality",
+        "Overall",
+        "Potential",
+        "Club",
+        "Value",
+        "Wage",
+        "Imagen",
+        "Url",
+    ],
+)
+
+#print(df)
+df.to_csv("data2.csv", index=False)
